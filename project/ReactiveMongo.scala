@@ -43,17 +43,9 @@ object BuildSettings {
 }
 
 object Publish {
-  def targetRepository: Def.Initialize[Option[Resolver]] = Def.setting {
-    val nexus = "https://oss.sonatype.org/"
-    val snapshotsR = "snapshots" at nexus + "content/repositories/snapshots"
-    val releasesR  = "releases"  at nexus + "service/local/staging/deploy/maven2"
-    val resolver = if (isSnapshot.value) snapshotsR else releasesR
-    Some(resolver)
-  }
 
   lazy val settings = Seq(
-    publishMavenStyle := true,
-    publishTo := targetRepository.value,
+    isSnapshot := version.value.matches("([\\w]+\\-SNAPSHOT)|([\\.\\w]+)\\-([\\d]+)\\-([\\w]+)"),
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
     licenses := Seq("Apache 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
