@@ -1,9 +1,11 @@
+import sbt.Package._
 import sbt._
 import sbt.Keys._
 import scala.language.postfixOps
 
 object BuildSettings {
-  val buildVersion = "0.11.0-SNAPSHOT"
+
+  import uk.gov.hmrc.gitstamp.GitStampPlugin
 
   val filter = { (ms: Seq[(File, String)]) =>
     ms filter {
@@ -12,21 +14,32 @@ object BuildSettings {
     }
   }
 
-  val buildSettings = Defaults.coreDefaultSettings ++ Seq(
-    organization := "org.reactivemongo",
-    version := buildVersion,
-    scalaVersion := "2.11.2",
-    crossScalaVersions  := Seq("2.11.2", "2.10.4"),
-    crossVersion := CrossVersion.binary,
-    javaOptions in test ++= Seq("-Xmx512m", "-XX:MaxPermSize=512m"),
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-target:jvm-1.6"),
-    scalacOptions in (Compile, doc) ++= Seq("-unchecked", "-deprecation", "-diagrams", "-implicits", "-skip-packages", "samples"),
-    scalacOptions in (Compile, doc) ++= Opts.doc.title("ReactiveMongo API"),
-    scalacOptions in (Compile, doc) ++= Opts.doc.version(buildVersion),
-    shellPrompt := ShellPrompt.buildShellPrompt,
-    mappings in (Compile, packageBin) ~= filter,
-    mappings in (Compile, packageSrc) ~= filter,
-    mappings in (Compile, packageDoc) ~= filter) ++ Publish.settings // ++ Format.settings
+  val buildSettings = Defaults.coreDefaultSettings ++
+    Seq(
+      organization := "org.reactivemongo",
+      scalaVersion := "2.11.6",
+      crossScalaVersions  := Seq("2.11.6", "2.10.5"),
+      crossVersion := CrossVersion.binary,
+      javaOptions in test ++= Seq("-Xmx512m", "-XX:MaxPermSize=512m"),
+      scalacOptions ++= Seq("-unchecked", "-deprecation", "-target:jvm-1.6", "-Xlint", "-Xmax-classfile-name", "100", "-encoding", "UTF-8"),
+      scalacOptions in (Compile, doc) ++= Seq("-unchecked", "-deprecation", "-diagrams", "-implicits", "-skip-packages", "samples"),
+      scalacOptions in (Compile, doc) ++= Opts.doc.title("ReactiveMongo API"),
+      mappings in (Compile, packageBin) ~= filter,
+      mappings in (Compile, packageSrc) ~= filter,
+      mappings in (Compile, packageDoc) ~= filter,
+      isSnapshot := version.value.matches("([\\w]+\\-SNAPSHOT)|([\\.\\w]+)\\-([\\d]+)\\-([\\w]+)")
+    ) ++
+    Publish.settings ++
+    GitStampPlugin.gitStampSettings ++
+    gitStampInfo()
+
+  private def gitStampInfo() = {
+    import uk.gov.hmrc.gitstamp.GitStamp._
+
+    Seq(packageOptions <+= (packageOptions in Compile, packageOptions in packageBin) map {(a, b) =>
+      ManifestAttributes(gitStamp.toSeq: _*)})
+  }
+
 }
 
 object Publish {
@@ -87,38 +100,6 @@ object Format {
   }
 }
 
-// Shell prompt which show the current project,
-// git branch and build version
-object ShellPrompt {
-  object devnull extends ProcessLogger {
-    def info(s: => String) {}
-
-    def error(s: => String) {}
-
-    def buffer[T](f: => T): T = f
-  }
-
-  def currBranch = (
-    ("git status -sb" lines_! devnull headOption)
-    getOrElse "-" stripPrefix "## ")
-
-  val buildShellPrompt = {
-    (state: State) =>
-      {
-        val currProject = Project.extract(state).currentProject.id
-        "%s:%s:%s> ".format(
-          currProject, currBranch, BuildSettings.buildVersion)
-      }
-  }
-}
-
-object Resolvers {
-  val typesafe = Seq(
-    "Typesafe repository snapshots" at "http://repo.typesafe.com/typesafe/snapshots/",
-    "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/")
-  val resolversList = typesafe
-}
-
 object Dependencies {
   val netty = "io.netty" % "netty" % "3.6.5.Final" cross CrossVersion.Disabled
 
@@ -134,19 +115,21 @@ object Dependencies {
 
 object ReactiveMongoBuild extends Build {
   import BuildSettings._
-  import Resolvers._
   import Dependencies._
   import sbtunidoc.{ Plugin => UnidocPlugin }
+  import uk.gov.hmrc.versioning.SbtGitVersioning
 
   val projectPrefix = "ReactiveMongo"
+
+  val resolversList = Seq(Resolver.typesafeRepo("snapshots"), Resolver.typesafeRepo("releases"))
 
   lazy val reactivemongo =
     Project(
       s"$projectPrefix-Root",
       file("."),
-      settings = buildSettings ++ (publishArtifact := false) ).
-    settings(UnidocPlugin.unidocSettings: _*).
-    aggregate(driver, bson, bsonmacros)
+      settings = buildSettings ++ (publishArtifact := false) )
+    .settings(UnidocPlugin.unidocSettings: _*)
+    .aggregate(driver, bson, bsonmacros)
 
   lazy val driver = Project(
     projectPrefix,
@@ -157,20 +140,24 @@ object ReactiveMongoBuild extends Build {
         netty,
         akkaActor,
         iteratees,
-        specs) ++ log4j)).dependsOn(bsonmacros)
+        specs) ++ log4j))
+    .enablePlugins(SbtGitVersioning)
+    .dependsOn(bsonmacros)
 
   lazy val bson = Project(
     s"$projectPrefix-BSON",
     file("bson"),
-    settings = buildSettings).
-    settings(libraryDependencies += Dependencies.specs)
+    settings = buildSettings)
+    .enablePlugins(SbtGitVersioning)
+    .settings(libraryDependencies += Dependencies.specs)
 
   lazy val bsonmacros = Project(
     s"$projectPrefix-BSON-Macros",
     file("macros"),
     settings = buildSettings ++ Seq(
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
-    )).
-    settings(libraryDependencies += Dependencies.specs).
-    dependsOn(bson)
+    ))
+    .enablePlugins(SbtGitVersioning)
+    .settings(libraryDependencies += Dependencies.specs)
+    .dependsOn(bson)
 }
