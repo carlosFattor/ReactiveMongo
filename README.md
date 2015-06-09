@@ -1,3 +1,30 @@
+***
+# ReactiveMongo Fork Details
+
+This fork has been created so that we are able to use the latest stable updates without having to wait for ReactiveMongo to release. It is believed that this fork will remain for a short period of time whilst ReactiveMongo resolve their releasing strategy.
+
+The only thing that is different in the fork is the organisation that it is published under. We have published under the HMRC organisation so that we do not conflict with ReactiveMongo versioning now and in the future. To include as a dependency add the following:
+
+```scala
+  "uk.gov.hmrc" %% "reactivemongo" % "[INSERT_VERSION]"
+)
+```
+
+Of course replace the text '[INSERT_VERSION]' with the appropriate version.
+
+[ ![release-candidates](https://api.bintray.com/packages/hmrc/release-candidates/reactivemongo/images/download.svg) ](https://bintray.com/hmrc/release-candidates/reactivemongo/_latestVersion)
+
+[ ![releases](https://api.bintray.com/packages/hmrc/releases/reactivemongo/images/download.svg) ](https://bintray.com/hmrc/releases/reactivemongo/_latestVersion)
+
+Additionally you will need to add one of the following resolvers depending on which candidate you are using:
+
+```scala
+Resolver.bintrayRepo("hmrc", "release-candidates")
+
+Resolver.bintrayRepo("hmrc", "release")
+```
+***
+
 # ReactiveMongo - Asynchronous & Non-Blocking Scala Driver for MongoDB
 
 [![Build Status](https://travis-ci.org/ReactiveMongo/ReactiveMongo.png?branch=master)](https://travis-ci.org/ReactiveMongo/ReactiveMongo)
